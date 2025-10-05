@@ -12,3 +12,4 @@ python -m pip install -U build twine
 python -m build
 pipx install dist/dukatools-<ver>-py3-none-any.whl
 treex --help
+python -m twine upload dist/*
