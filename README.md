@@ -1,12 +1,12 @@
-# toolskit
+# dukatools
 
 Cross-platform CLI toolbelt.
 
 ## Install
-uv tool install toolskit
+uv tool install dukatools
 
 ## Upgrade
-uv tool upgrade toolskit
+uv tool upgrade dukatools
 
 ## Commands
 - treex — enhanced directory tree

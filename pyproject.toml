@@ -3,7 +3,7 @@ requires = ["hatchling>=1.25"]
 build-backend = "hatchling.build"
 
 [project]
-name = "toolskit"
+name = "dukatools"
 version = "0.1.0"
 description = "Small cross-platform CLI toolbelt: treex, dirproc, and more."
 readme = "README.md"
@@ -19,9 +19,9 @@ classifiers = [
 
 # Здесь «магия» команд:
 [project.scripts]
-treex = "toolskit.treex:main"
-dirproc = "toolskit.dirproc:main"
+treex = "dukatools.treex:main"
+dirproc = "dukatools.dirproc:main"
 
 [project.urls]
-Homepage = "https://github.com/<your-user>/toolskit"
-Issues = "https://github.com/<your-user>/toolskit/issues"
+Homepage = "https://github.com/<your-user>/dukatools"
+Issues = "https://github.com/<your-user>/dukatools/issues"
