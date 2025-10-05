@@ -1,12 +1,12 @@
-# swissknife
+# toolskit
 
 Cross-platform CLI toolbelt.
 
 ## Install
-uv tool install swissknife
+uv tool install toolskit
 
 ## Upgrade
-uv tool upgrade swissknife
+uv tool upgrade toolskit
 
 ## Commands
 - treex — enhanced directory tree
