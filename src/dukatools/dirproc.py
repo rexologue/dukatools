@@ -1,14 +1,18 @@
 from __future__ import annotations
 import os
 import re
-import fnmatch  # не используется, но оставлю на случай расширений
-import chardet
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
 from typing import Iterable, List, Set, Optional
 
 
 def detect_encoding(file_path: str) -> str:
+    try:
+        import chardet
+    except ModuleNotFoundError:
+        print("chardet is necessary. Make an uodate: uv tool upgrade dukatools", flush=True)
+        raise
+
     with open(file_path, "rb") as file:
         raw_data = file.read()
         result = chardet.detect(raw_data)
