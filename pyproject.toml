@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "swissknife"
+version = "0.1.0"
+description = "Small cross-platform CLI toolbelt: treex, dirproc, and more."
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "rexologue"}]
+keywords = ["cli", "utilities", "filesystem", "tree"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+# Здесь «магия» команд:
+[project.scripts]
+treex = "swissknife.treex:main"
+dirproc = "swissknife.dirproc:main"
+
+[project.urls]
+Homepage = "https://github.com/<your-user>/swissknife"
+Issues = "https://github.com/<your-user>/swissknife/issues"
