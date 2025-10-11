@@ -1,28 +1,42 @@
 [build-system]
-requires = ["hatchling>=1.25"]
-build-backend = "hatchling.build"
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "dukatools"
-version = "0.1.1"
+version = "0.2.0"
 description = "Small cross-platform CLI toolbelt: treex, dirproc, and more."
 readme = "README.md"
 requires-python = ">=3.8"
-license = {text = "MIT"}
-authors = [{name = "rexologue"}]
+license = "MIT"
+license-files = ["LICENSE*"]
+authors = [{ name = "rexologue" }]
 keywords = ["cli", "utilities", "filesystem", "tree"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
-dependencies = ["chardet>=5,<6"]
+# runtime-зависимости
+dependencies = [
+  "chardet>=5,<6",
+  "imageio-ffmpeg>=0.4",
+]
 
-# Здесь «магия» команд:
+# CLI-скрипты (установятся как бинарники в PATH)
 [project.scripts]
 treex = "dukatools.treex:main"
 dirproc = "dukatools.dirproc:main"
+vidcut = "dukatools.vidcut:main"
 
+# Cсылки для карточки на PyPI
 [project.urls]
-Homepage = "https://github.com/<your-user>/dukatools"
-Issues = "https://github.com/<your-user>/dukatools/issues"
+homepage = "https://github.com/rexologue/dukatools"
+repository = "https://github.com/rexologue/dukatools"
+"Bug Tracker" = "https://github.com/rexologue/dukatools/issues"
+
+# Poetry-специфичная часть: описываем src-layout для упаковки
+[tool.poetry]
+requires-poetry = ">=2.0"
+packages = [{ include = "dukatools", from = "src" }]
+

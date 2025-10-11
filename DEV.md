@@ -5,7 +5,7 @@
 2) Register entry point in pyproject.toml under [project.scripts]: `<tool> = "dukatools.<tool>:main"`
 3) Bump version in pyproject.toml (e.g., 0.1.0 -> 0.2.0)
 4) Build & test locally
-5) Tag & push to GitHub (CI will publish to PyPI)
+5) Tag & push to GitHub 
 
 ## Local build & test
 python -m pip install -U build twine
