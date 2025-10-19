@@ -11,6 +11,7 @@
   - [treex — directory trees with excludes](#treex--directory-trees-with-excludes)
   - [dirproc — batch dump directory files](#dirproc--batch-dump-directory-files)
   - [vidcut — fast and accurate video trimming](#vidcut--fast-and-accurate-video-trimming)
+  - [pydown — grab python-build-standalone releases](#pydown--grab-python-build-standalone-releases)
 - [Configuration & environment variables](#configuration--environment-variables)
 - [Development](#development)
 - [License](#license)
@@ -20,6 +21,7 @@
 - **Tree inspection with smart excludes** through `treex`, ideal for sharing repository structure without build artifacts.
 - **Directory dumping** with on-the-fly encoding detection (`dirproc`) for audits, backups, and quick reviews.
 - **FFmpeg-powered video trimming** (`vidcut`) with automatic fallback from stream-copy to frame-accurate cuts.
+- **One-file Python downloads** (`pydown`) for fetching and unpacking python-build-standalone releases without manual API spelunking.
 - **Zero-config defaults** plus optional environment overrides when you need extra control.
 
 ## Installation
@@ -40,7 +42,7 @@ pipx install dukatools
 python -m pip install --user dukatools
 ```
 
-All installation methods place the `treex`, `dirproc`, and `vidcut` entry points on your PATH.
+All installation methods place the `treex`, `dirproc`, `vidcut`, and `pydown` entry points on your PATH.
 
 ## Upgrading
 Stay current with the latest enhancements and fixes:
@@ -63,6 +65,9 @@ $ dirproc ./notes --exclude-pattern "^archive/"
 
 # Trim the first five seconds off a video without re-encoding
 $ vidcut sample.mp4 --trim-start 5s --overwrite
+
+# Download and extract a python-build-standalone release into ~/python-builds
+$ pydown --dest ~/python-builds --version 3.12 --extract
 ```
 
 ## CLI utilities
@@ -154,6 +159,36 @@ vidcut input.mp4 --from 10s --duration 15s --dry-run
 
 # Ensure FFmpeg is available (downloads via imageio-ffmpeg if needed)
 vidcut --doctor
+```
+
+### pydown — grab python-build-standalone releases
+`pydown` automates downloading python-build-standalone artifacts from GitHub, selecting the right CPU/OS triplet and variant, and optionally extracting the archive for you.
+
+**Highlights**
+- Detects the correct `python-build-standalone` triplet for Linux (glibc/musl), macOS, and Windows hosts, with manual overrides when you need them.
+- Supports picking variants (`install_only_stripped`, `install_only`, `full`, `debug`) and specific Python versions.
+- Can extract archives in place and create helpful shims to add the installed Python to your PATH.
+- Works with anonymous GitHub access or an optional `GITHUB_TOKEN` for higher rate limits.
+
+**Usage**
+```bash
+pydown --dest PATH \
+       [--version 3.12.6] \
+       [--variant install_only_stripped] \
+       [--extract] \
+       [--triplet aarch64-apple-darwin]
+```
+
+**Common scenarios**
+```bash
+# Download the latest CPython build for your platform and extract it
+pydown --dest ~/python-builds --extract
+
+# Grab Python 3.12.6 and unpack it into a versioned directory
+pydown --dest ./pbs --version 3.12.6 --extract
+
+# Override the platform triplet (useful for cross-deployment scripting)
+pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
 ```
 
 ## Configuration & environment variables
