@@ -8,24 +8,28 @@
 - [Upgrading](#upgrading)
 - [Quick start](#quick-start)
 - [CLI utilities](#cli-utilities)
+  - [duka — run dukatools tools](#duka--run-dukatools-tools)
   - [treex — directory trees with excludes](#treex--directory-trees-with-excludes)
-  - [dirproc — batch dump directory files](#dirproc--batch-dump-directory-files)
+  - [dircat — batch dump directory files](#dircat--batch-dump-directory-files)
   - [vidcut — fast and accurate video trimming](#vidcut--fast-and-accurate-video-trimming)
   - [pydown — grab python-build-standalone releases](#pydown--grab-python-build-standalone-releases)
+  - [pyarc — pack and unpack tar.gz archives](#pyarc--pack-and-unpack-targz-archives)
 - [Configuration & environment variables](#configuration--environment-variables)
 - [Development](#development)
 - [License](#license)
 
 ## Features at a glance
 - **Cross-platform binaries** via `uv tool`, `pipx`, or `pip` — no manual PATH setup required.
+- **One entry point** (`duka`) to launch every other utility.
 - **Tree inspection with smart excludes** through `treex`, ideal for sharing repository structure without build artifacts.
-- **Directory dumping** with on-the-fly encoding detection (`dirproc`) for audits, backups, and quick reviews.
+- **Directory dumping** via `dircat` for quick audits, backups, and reviews.
 - **FFmpeg-powered video trimming** (`vidcut`) with automatic fallback from stream-copy to frame-accurate cuts.
 - **One-file Python downloads** (`pydown`) for fetching and unpacking python-build-standalone releases without manual API spelunking.
+- **Archive packing/unpacking** (`pyarc`) for fast, progress-aware `.tar.gz` workflows.
 - **Zero-config defaults** plus optional environment overrides when you need extra control.
 
 ## Installation
-`dukatools` is distributed as a standard Python package targeting Python 3.8+.
+`dukatools` is distributed as a standard Python package targeting Python 3.10+.
 
 ### Using [uv](https://docs.astral.sh/uv/)
 ```bash
@@ -42,7 +46,7 @@ pipx install dukatools
 python -m pip install --user dukatools
 ```
 
-All installation methods place the `treex`, `dirproc`, `vidcut`, and `pydown` entry points on your PATH.
+All installation methods place the `duka`, `treex`, `dircat`, `vidcut`, `pydown`, and `pyarc` entry points on your PATH.
 
 ## Upgrading
 Stay current with the latest enhancements and fixes:
@@ -58,22 +62,42 @@ python -m pip install --upgrade dukatools
 ## Quick start
 ```bash
 # Explore a repository without build artifacts
-$ treex --path . --exclude .git --exclude-pattern "*.pyc" "build"
+$ duka treex . --exclude .git build --exclude-re "*.pyc"
 
 # Dump every text file in a directory into stdout (recursively)
-$ dirproc ./notes --exclude-pattern "^archive/"
+$ duka dircat ./notes --exclude-re "^archive/"
 
 # Trim the first five seconds off a video without re-encoding
-$ vidcut sample.mp4 --trim-start 5s --overwrite
+$ duka vidcut sample.mp4 --trim-start 5s --overwrite
 
 # Download and extract a python-build-standalone release into ~/python-builds
-$ pydown --dest ~/python-builds --version 3.12 --extract
+$ duka pydown --dest ~/python-builds --version 3.12 --extract
+
+# Pack a project into a .tar.gz with excludes
+$ duka pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
 ```
+
+You can still call `treex`, `dircat`, `vidcut`, `pydown`, and `pyarc` directly if you prefer.
 
 ## CLI utilities
 
+### duka — run dukatools tools
+`duka` is a lightweight launcher so you do not have to remember the individual binary names.
+
+**Usage**
+```bash
+duka <tool> [args...]
+```
+
+**Example**
+```bash
+duka treex /home/user/project1 --exclude .git
+```
+
+If you run `duka` with no arguments, it prints the list of available tools.
+
 ### treex — directory trees with excludes
-`treex` renders a directory structure in a friendly tree format while supporting both exact-name excludes and glob patterns.
+`treex` renders a directory structure in a friendly tree format while supporting both exact-name excludes and regex/glob rules.
 
 **Highlights**
 - Exclude generated folders such as `__pycache__`, `build`, or `node_modules` with a single command.
@@ -82,15 +106,17 @@ $ pydown --dest ~/python-builds --version 3.12 --extract
 
 **Usage**
 ```bash
-treex --path PATH \
+treex PATH \
       [--exclude NAME ...] \
-      [--exclude-pattern GLOB ...]
+      [--exclude-re RULE ...]
 ```
+
+If `PATH` is omitted, `treex` uses the current directory.
 
 **Example output**
 ```
 Directory tree for: ./project
-Excluded patterns: *.pyc
+Excluded rules: *.pyc
 ├── pyproject.toml
 ├── README.md
 └── src
@@ -99,27 +125,25 @@ Excluded patterns: *.pyc
         └── core.py
 ```
 
-### dirproc — batch dump directory files
-`dirproc` walks a directory, opening each text file, detecting its encoding (via `chardet`), and streaming the content either to stdout or to a UTF-8 file you specify.
+### dircat — batch dump directory files
+`dircat` walks a directory, printing every file it finds to stdout with a clear header for each file.
 
 **Highlights**
-- Recursive by default, with `--non-recursive` available for shallow inspections.
-- Combine `--exclude-name` and `--exclude-pattern` (regex) to skip sensitive or noisy paths.
-- Emits friendly messages when files are unreadable, including the error reason.
+- Recursive by default for quick directory audits.
+- Combine `--exclude` and `--exclude-re` to skip sensitive or noisy paths.
+- Prints UTF-8 text and replaces undecodable bytes when needed.
 - Perfect for quickly packaging logs, notes, or configuration snapshots for debugging.
 
 **Usage**
 ```bash
-dirproc ROOT_DIR \
-        [--output-file OUTPUT.txt] \
-        [--non-recursive] \
-        [--exclude-name NAME ...] \
-        [--exclude-pattern REGEX ...]
+dircat ROOT_DIR \
+       [--exclude PATH ...] \
+       [--exclude-re RULE ...]
 ```
 
 **Writing to a file**
 ```bash
-dirproc ./config --output-file artifacts/config-dump.txt --exclude-pattern "\.git/"
+dircat ./config --exclude-re "\.git/" > artifacts/config-dump.txt
 ```
 
 ### vidcut — fast and accurate video trimming
@@ -191,12 +215,37 @@ pydown --dest ./pbs --version 3.12.6 --extract
 pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
 ```
 
+### pyarc — pack and unpack tar.gz archives
+`pyarc` creates and extracts `.tar.gz` archives with progress output. It uses external `pigz` and `tar` for speed.
+
+**Highlights**
+- Fast gzip compression via `pigz` with configurable threads.
+- Exact excludes and flexible rules (`--exclude` / `--exclude-re`).
+- Progress bars and throughput reporting for pack/unpack operations.
+
+**Usage**
+```bash
+pyarc pack SRC ARCHIVE.tar.gz \
+      [--exclude NAME ...] \
+      [--exclude-re RULE ...] \
+      [--threads N] \
+      [--level 1..9]
+
+pyarc unpack ARCHIVE.tar.gz DEST_DIR \
+      [--threads N]
+```
+
+**Example**
+```bash
+pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
+```
+
 ## Configuration & environment variables
 - `DUKATOOLS_FFMPEG` — absolute path to an FFmpeg binary. Overrides auto-detection for `vidcut`.
 - Standard locale and encoding settings (e.g., `LANG`, `LC_ALL`) influence how output is rendered in your terminal.
 
 ## Development
-Interested in hacking on `dukatools`? Clone the repository and install local dependencies with your preferred workflow. A concise developer walkthrough lives in [DEV.md](DEV.md), covering how to add new CLI tools, build wheels, and publish releases.
+Interested in hacking on `dukatools`? Clone the repository and install local dependencies with your preferred workflow. A concise developer walkthrough lives in [DEV.md](DEV.md), covering how to add or remove CLI tools, build wheels, and publish releases.
 
 ## License
 `dukatools` is released under the MIT License. See [LICENSE](LICENSE) for the full text.

@@ -1,3 +1,12 @@
+"""vidcut: fast and accurate video trimming via FFmpeg.
+
+Highlights:
+- Fast stream-copy trimming by default with automatic fallback to re-encode.
+- Accepts flexible time formats: seconds, 00:00:00.000, 5s, 2m, etc.
+- Batch mode via glob patterns.
+- FFmpeg auto-detection: explicit path, DUKATOOLS_FFMPEG, imageio-ffmpeg, or PATH.
+"""
+
 from __future__ import annotations
 import argparse, subprocess, sys, shutil, os, glob, math, re
 from pathlib import Path

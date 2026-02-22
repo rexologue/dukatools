@@ -4,8 +4,8 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "dukatools"
-version = "0.3.0"
-description = "Small cross-platform CLI toolbelt: treex, dirproc, and more."
+version = "0.4.0"
+description = "Small cross-platform CLI toolbelt: treex, dircat, pyarc, and more."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -19,16 +19,18 @@ classifiers = [
 ]
 # runtime-зависимости
 dependencies = [
-  "chardet>=5,<6",
   "imageio-ffmpeg>=0.4",
+  "rich>=13,<14",
 ]
 
 # CLI-скрипты (установятся как бинарники в PATH)
 [project.scripts]
+duka = "dukatools.duka:main"
 treex = "dukatools.treex:main"
-dirproc = "dukatools.dirproc:main"
+dircat = "dukatools.dircat:main"
 vidcut = "dukatools.vidcut:main"
 pydown = "dukatools.pydown:main"
+pyarc = "dukatools.pyarc:main"
 
 # Cсылки для карточки на PyPI
 [project.urls]
@@ -40,4 +42,3 @@ repository = "https://github.com/rexologue/dukatools"
 [tool.poetry]
 requires-poetry = ">=2.0"
 packages = [{ include = "dukatools", from = "src" }]
-
