@@ -552,12 +552,12 @@ def unpack(archive: Path, dst: Path, threads: int) -> None:
 def build_parser() -> argparse.ArgumentParser:
     examples = """
 Examples:
-  pyarc pack ./mydir ./backup.tar.gz
-  pyarc pack ./mydir ./backup.tar.gz --level 4 --threads 16
-  pyarc pack ./mydir ./backup.tar.gz --exclude .git __pycache__ node_modules
-  pyarc pack ./mydir ./backup.tar.gz --exclude-re git *.txt
-  pyarc unpack ./backup.tar.gz ./restore_here
-  pyarc unpack ./backup.tar.gz ./restore_here --threads 8
+  duka pyarc pack ./mydir ./backup.tar.gz
+  duka pyarc pack ./mydir ./backup.tar.gz --level 4 --threads 16
+  duka pyarc pack ./mydir ./backup.tar.gz --exclude .git __pycache__ node_modules
+  duka pyarc pack ./mydir ./backup.tar.gz --exclude-re git *.txt
+  duka pyarc unpack ./backup.tar.gz ./restore_here
+  duka pyarc unpack ./backup.tar.gz ./restore_here --threads 8
 
 Exclude semantics:
   --exclude ...     exact name/path match (basename OR relative path)
@@ -574,7 +574,7 @@ Performance note:
 """.strip("\n")
 
     p = argparse.ArgumentParser(
-        prog="pyarc",
+        prog="duka pyarc",
         description=(
             "Fast tar.gz pack/unpack wrapper with rich progress UI (ETA, speed, bytes) using tar + pigz.\n"
             "Designed as a convenient operator tool around subprocess pipelines."

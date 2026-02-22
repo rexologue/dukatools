@@ -19,13 +19,13 @@
 - [License](#license)
 
 ## Features at a glance
-- **Cross-platform binaries** via `uv tool`, `pipx`, or `pip` — no manual PATH setup required.
-- **One entry point** (`duka`) to launch every other utility.
-- **Tree inspection with smart excludes** through `treex`, ideal for sharing repository structure without build artifacts.
-- **Directory dumping** via `dircat` for quick audits, backups, and reviews.
-- **FFmpeg-powered video trimming** (`vidcut`) with automatic fallback from stream-copy to frame-accurate cuts.
-- **One-file Python downloads** (`pydown`) for fetching and unpacking python-build-standalone releases without manual API spelunking.
-- **Archive packing/unpacking** (`pyarc`) for fast, progress-aware `.tar.gz` workflows.
+- **Cross-platform install** via `uv tool`, `pipx`, or `pip` — no manual PATH setup required.
+- **Single launcher entry point** (`duka`) to run every tool (standalone binaries are intentionally not installed).
+- **Tree inspection with smart excludes** via `duka treex`, ideal for sharing repository structure without build artifacts.
+- **Directory dumping** via `duka dircat` for quick audits, backups, and reviews.
+- **FFmpeg-powered video trimming** via `duka vidcut` with automatic fallback from stream-copy to frame-accurate cuts.
+- **One-file Python downloads** via `duka pydown` for fetching and unpacking python-build-standalone releases.
+- **Archive packing/unpacking** via `duka pyarc` for fast, progress-aware `.tar.gz` workflows.
 - **Zero-config defaults** plus optional environment overrides when you need extra control.
 
 ## Installation
@@ -46,7 +46,7 @@ pipx install dukatools
 python -m pip install --user dukatools
 ```
 
-All installation methods place the `duka`, `treex`, `dircat`, `vidcut`, `pydown`, and `pyarc` entry points on your PATH.
+All installation methods place only the `duka` entry point on your PATH. Every tool is invoked as `duka <tool> ...`.
 
 ## Upgrading
 Stay current with the latest enhancements and fixes:
@@ -58,6 +58,8 @@ pipx upgrade dukatools
 # or
 python -m pip install --upgrade dukatools
 ```
+
+From version `0.4.1` onward, `dukatools` installs **only** the `duka` launcher. If you still see old standalone binaries like `treex` or `dircat` on your PATH after upgrading, uninstall and reinstall the package (for `pipx`, `pipx uninstall dukatools` + `pipx install dukatools`).
 
 ## Quick start
 ```bash
@@ -77,7 +79,7 @@ $ duka pydown --dest ~/python-builds --version 3.12 --extract
 $ duka pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
 ```
 
-You can still call `treex`, `dircat`, `vidcut`, `pydown`, and `pyarc` directly if you prefer.
+Tools are launcher-only. Use `duka <tool>` and `duka <tool> --help` for full usage.
 
 ## CLI utilities
 
@@ -97,7 +99,7 @@ duka treex /home/user/project1 --exclude .git
 If you run `duka` with no arguments, it prints the list of available tools.
 
 ### treex — directory trees with excludes
-`treex` renders a directory structure in a friendly tree format while supporting both exact-name excludes and regex/glob rules.
+`treex` renders a directory structure in a friendly tree format while supporting both exact-name excludes and regex/glob rules. Invoke it as `duka treex`.
 
 **Highlights**
 - Exclude generated folders such as `__pycache__`, `build`, or `node_modules` with a single command.
@@ -106,12 +108,12 @@ If you run `duka` with no arguments, it prints the list of available tools.
 
 **Usage**
 ```bash
-treex PATH \
+duka treex PATH \
       [--exclude NAME ...] \
       [--exclude-re RULE ...]
 ```
 
-If `PATH` is omitted, `treex` uses the current directory.
+If `PATH` is omitted, `duka treex` uses the current directory.
 
 **Example output**
 ```
@@ -126,7 +128,7 @@ Excluded rules: *.pyc
 ```
 
 ### dircat — batch dump directory files
-`dircat` walks a directory, printing every file it finds to stdout with a clear header for each file.
+`dircat` walks a directory, printing every file it finds to stdout with a clear header for each file. Invoke it as `duka dircat`.
 
 **Highlights**
 - Recursive by default for quick directory audits.
@@ -136,18 +138,18 @@ Excluded rules: *.pyc
 
 **Usage**
 ```bash
-dircat ROOT_DIR \
+duka dircat ROOT_DIR \
        [--exclude PATH ...] \
        [--exclude-re RULE ...]
 ```
 
 **Writing to a file**
 ```bash
-dircat ./config --exclude-re "\.git/" > artifacts/config-dump.txt
+duka dircat ./config --exclude-re "\.git/" > artifacts/config-dump.txt
 ```
 
 ### vidcut — fast and accurate video trimming
-`vidcut` wraps FFmpeg and provides a friendly interface for clipping one or more video files. It prefers stream-copy (no re-encode) for speed, then transparently falls back to a frame-accurate re-encode when necessary.
+`vidcut` wraps FFmpeg and provides a friendly interface for clipping one or more video files. It prefers stream-copy (no re-encode) for speed, then transparently falls back to a frame-accurate re-encode when necessary. Invoke it as `duka vidcut`.
 
 **Highlights**
 - Accepts flexible time formats (`90`, `45.5`, `00:01:02.300`, `5s`, `2m`, etc.).
@@ -158,7 +160,7 @@ dircat ./config --exclude-re "\.git/" > artifacts/config-dump.txt
 
 **Usage**
 ```bash
-vidcut INPUT [INPUT ...] \
+duka vidcut INPUT [INPUT ...] \
        [--out OUTPUT.mp4] \
        [--suffix _cut] \
        [--from START] [--to END] [--duration DURATION] \
@@ -170,23 +172,23 @@ vidcut INPUT [INPUT ...] \
 **Common scenarios**
 ```bash
 # Keep a 12 second clip (fast copy mode)
-vidcut clip.mp4 --from 00:00:05 --duration 12s --overwrite
+duka vidcut clip.mp4 --from 00:00:05 --duration 12s --overwrite
 
 # Batch trim all MOV files, append suffix, and overwrite existing clips
-vidcut "videos/*.mov" --trim-start 3s --suffix _trimmed --overwrite
+duka vidcut "videos/*.mov" --trim-start 3s --suffix _trimmed --overwrite
 
 # Force frame-accurate cutting
-vidcut input.mp4 --from 1m --duration 5s --accurate --overwrite
+duka vidcut input.mp4 --from 1m --duration 5s --accurate --overwrite
 
 # Preview the ffmpeg command without running it
-vidcut input.mp4 --from 10s --duration 15s --dry-run
+duka vidcut input.mp4 --from 10s --duration 15s --dry-run
 
 # Ensure FFmpeg is available (downloads via imageio-ffmpeg if needed)
-vidcut --doctor
+duka vidcut --doctor
 ```
 
 ### pydown — grab python-build-standalone releases
-`pydown` automates downloading python-build-standalone artifacts from GitHub, selecting the right CPU/OS triplet and variant, and optionally extracting the archive for you.
+`pydown` automates downloading python-build-standalone artifacts from GitHub, selecting the right CPU/OS triplet and variant, and optionally extracting the archive for you. Invoke it as `duka pydown`.
 
 **Highlights**
 - Detects the correct `python-build-standalone` triplet for Linux (glibc/musl), macOS, and Windows hosts, with manual overrides when you need them.
@@ -196,7 +198,7 @@ vidcut --doctor
 
 **Usage**
 ```bash
-pydown --dest PATH \
+duka pydown --dest PATH \
        [--version 3.12.6] \
        [--variant install_only_stripped] \
        [--extract] \
@@ -206,17 +208,17 @@ pydown --dest PATH \
 **Common scenarios**
 ```bash
 # Download the latest CPython build for your platform and extract it
-pydown --dest ~/python-builds --extract
+duka pydown --dest ~/python-builds --extract
 
 # Grab Python 3.12.6 and unpack it into a versioned directory
-pydown --dest ./pbs --version 3.12.6 --extract
+duka pydown --dest ./pbs --version 3.12.6 --extract
 
 # Override the platform triplet (useful for cross-deployment scripting)
-pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
+duka pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
 ```
 
 ### pyarc — pack and unpack tar.gz archives
-`pyarc` creates and extracts `.tar.gz` archives with progress output. It uses external `pigz` and `tar` for speed.
+`pyarc` creates and extracts `.tar.gz` archives with progress output. It uses external `pigz` and `tar` for speed. Invoke it as `duka pyarc`.
 
 **Highlights**
 - Fast gzip compression via `pigz` with configurable threads.
@@ -225,19 +227,19 @@ pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
 
 **Usage**
 ```bash
-pyarc pack SRC ARCHIVE.tar.gz \
+duka pyarc pack SRC ARCHIVE.tar.gz \
       [--exclude NAME ...] \
       [--exclude-re RULE ...] \
       [--threads N] \
       [--level 1..9]
 
-pyarc unpack ARCHIVE.tar.gz DEST_DIR \
+duka pyarc unpack ARCHIVE.tar.gz DEST_DIR \
       [--threads N]
 ```
 
 **Example**
 ```bash
-pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
+duka pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
 ```
 
 ## Configuration & environment variables

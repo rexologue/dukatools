@@ -18,6 +18,7 @@ from typing import List, Tuple
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog="duka dircat",
         description="Рекурсивно вывести содержимое всех файлов в директории."
     )
     parser.add_argument(

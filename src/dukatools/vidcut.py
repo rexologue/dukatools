@@ -112,28 +112,28 @@ def main():
 EXAMPLES (all single-line):
 
   # Fast, no re-encode: cut from 00:00:05 to 00:00:12
-  vidcut input.mp4 --from 00:00:05 --to 00:00:12 --overwrite
+  duka vidcut input.mp4 --from 00:00:05 --to 00:00:12 --overwrite
 
   # Keep 10 seconds starting at 45.5s, write to out.mp4
-  vidcut input.mp4 --from 45.5 --duration 10s -o out.mp4 --overwrite
+  duka vidcut input.mp4 --from 45.5 --duration 10s -o out.mp4 --overwrite
 
   # Trim the first 4 seconds, keep the rest
-  vidcut input.mp4 --trim-start 4s --overwrite
+  duka vidcut input.mp4 --trim-start 4s --overwrite
 
   # Trim the last 3 seconds (auto-detects duration)
-  vidcut input.mp4 --trim-end 3s --overwrite
+  duka vidcut input.mp4 --trim-end 3s --overwrite
 
   # Frame-accurate cut (re-encodes video, audio copied)
-  vidcut input.mp4 --from 00:01:00 --duration 5s --accurate --overwrite
+  duka vidcut input.mp4 --from 00:01:00 --duration 5s --accurate --overwrite
 
   # Batch: all mp4, keep 15s clips with suffix _clip
-  vidcut "*.mp4" --from 2m --duration 15s --suffix _clip --overwrite
+  duka vidcut "*.mp4" --from 2m --duration 15s --suffix _clip --overwrite
 
   # Inspect and cache ffmpeg that vidcut will use
-  vidcut --doctor
+  duka vidcut --doctor
 """
     p = argparse.ArgumentParser(
-        prog="vidcut",
+        prog="duka vidcut",
         description=(
             "Fast & accurate video trimming powered by FFmpeg.\n"
             "Default mode performs stream copy (no re-encode) for speed; if it fails, "

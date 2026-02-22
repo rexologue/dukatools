@@ -84,6 +84,7 @@ def print_tree(
 
 def main() -> None:
     parser = ArgumentParser(
+        prog="duka treex",
         description=(
             "Draw a directory tree with exact excludes and regex/glob rules. "
             "Use --exclude for exact names, and --exclude-re for regex or glob rules."

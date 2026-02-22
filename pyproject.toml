@@ -4,8 +4,8 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "dukatools"
-version = "0.4.0"
-description = "Small cross-platform CLI toolbelt: treex, dircat, pyarc, and more."
+version = "0.4.1"
+description = "Small cross-platform CLI toolbelt (launcher-only via duka): treex, dircat, pyarc, and more."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
@@ -26,11 +26,6 @@ dependencies = [
 # CLI-скрипты (установятся как бинарники в PATH)
 [project.scripts]
 duka = "dukatools.duka:main"
-treex = "dukatools.treex:main"
-dircat = "dukatools.dircat:main"
-vidcut = "dukatools.vidcut:main"
-pydown = "dukatools.pydown:main"
-pyarc = "dukatools.pyarc:main"
 
 # Cсылки для карточки на PyPI
 [project.urls]

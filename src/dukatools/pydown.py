@@ -196,7 +196,10 @@ def try_find_installed_python(root: Path) -> Optional[Path]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Download (and optionally extract) python-build-standalone asset.")
+    ap = argparse.ArgumentParser(
+        prog="duka pydown",
+        description="Download (and optionally extract) python-build-standalone asset.",
+    )
     ap.add_argument("--dest", required=True, help="Destination directory for downloads/extraction")
     ap.add_argument("--version", default="", help="Desired Python version, e.g. 3.12 or 3.12.6 (default: latest)")
     ap.add_argument("--variant", default="install_only_stripped",
