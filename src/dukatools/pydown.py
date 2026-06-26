@@ -196,9 +196,27 @@ def try_find_installed_python(root: Path) -> Optional[Path]:
 
 
 def main() -> None:
+    epilog = """
+Examples:
+  duka pydown --dest ~/python-builds --extract
+  duka pydown --dest ./pbs --version 3.12 --extract
+  duka pydown --dest ./pbs --version 3.12.6 --variant install_only
+  duka pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
+
+Variant guide:
+  install_only_stripped  compact default build for most local installs
+  install_only           install tree with more bundled files
+  full                   larger build with additional artifacts
+  debug                  debug-oriented build when available upstream
+
+Environment:
+  GITHUB_TOKEN can be set to avoid anonymous GitHub API rate limits.
+""".strip()
     ap = argparse.ArgumentParser(
         prog="duka pydown",
         description="Download (and optionally extract) python-build-standalone asset.",
+        epilog=epilog,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     ap.add_argument("--dest", required=True, help="Destination directory for downloads/extraction")
     ap.add_argument("--version", default="", help="Desired Python version, e.g. 3.12 or 3.12.6 (default: latest)")

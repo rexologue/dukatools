@@ -9,11 +9,11 @@
 - [Quick start](#quick-start)
 - [CLI utilities](#cli-utilities)
   - [duka — run dukatools tools](#duka--run-dukatools-tools)
-  - [treex — directory trees with excludes](#treex--directory-trees-with-excludes)
+  - [treex — directory trees with include/exclude filters](#treex--directory-trees-with-includeexclude-filters)
   - [dircat — batch dump directory files](#dircat--batch-dump-directory-files)
   - [vidcut — fast and accurate video trimming](#vidcut--fast-and-accurate-video-trimming)
   - [pydown — grab python-build-standalone releases](#pydown--grab-python-build-standalone-releases)
-  - [pyarc — pack and unpack tar.gz archives](#pyarc--pack-and-unpack-targz-archives)
+  - [arc — pack and unpack tar.gz archives](#arc--pack-and-unpack-targz-archives)
 - [Configuration & environment variables](#configuration--environment-variables)
 - [Development](#development)
 - [License](#license)
@@ -21,11 +21,11 @@
 ## Features at a glance
 - **Cross-platform install** via `uv tool`, `pipx`, or `pip` — no manual PATH setup required.
 - **Single launcher entry point** (`duka`) to run every tool (standalone binaries are intentionally not installed).
-- **Tree inspection with smart excludes** via `duka treex`, ideal for sharing repository structure without build artifacts.
-- **Directory dumping** via `duka dircat` for quick audits, backups, and reviews.
+- **Tree inspection with include/exclude filters** via `duka treex`, ideal for sharing repository structure without build artifacts.
+- **Directory dumping with filters** via `duka dircat` for quick audits, backups, and reviews.
 - **FFmpeg-powered video trimming** via `duka vidcut` with automatic fallback from stream-copy to frame-accurate cuts.
 - **One-file Python downloads** via `duka pydown` for fetching and unpacking python-build-standalone releases.
-- **Archive packing/unpacking** via `duka pyarc` for fast, progress-aware `.tar.gz` workflows.
+- **Archive packing/unpacking** via `duka arc` for progress-aware `.tar.gz` workflows, with fast `pigz` acceleration when available and Python fallback otherwise.
 - **Zero-config defaults** plus optional environment overrides when you need extra control.
 
 ## Installation
@@ -66,8 +66,8 @@ From version `0.4.1` onward, `dukatools` installs **only** the `duka` launcher. 
 # Explore a repository without build artifacts
 $ duka treex . --exclude .git build --exclude-re "*.pyc"
 
-# Dump every text file in a directory into stdout (recursively)
-$ duka dircat ./notes --exclude-re "^archive/"
+# Dump selected Markdown files from a directory into stdout (recursively)
+$ duka dircat ./notes --include-re "*.md" --exclude archive
 
 # Trim the first five seconds off a video without re-encoding
 $ duka vidcut sample.mp4 --trim-start 5s --overwrite
@@ -76,7 +76,7 @@ $ duka vidcut sample.mp4 --trim-start 5s --overwrite
 $ duka pydown --dest ~/python-builds --version 3.12 --extract
 
 # Pack a project into a .tar.gz with excludes
-$ duka pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
+$ duka arc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
 ```
 
 Tools are launcher-only. Use `duka <tool>` and `duka <tool> --help` for full usage.
@@ -98,22 +98,27 @@ duka treex /home/user/project1 --exclude .git
 
 If you run `duka` with no arguments, it prints the list of available tools.
 
-### treex — directory trees with excludes
-`treex` renders a directory structure in a friendly tree format while supporting both exact-name excludes and regex/glob rules. Invoke it as `duka treex`.
+### treex — directory trees with include/exclude filters
+`treex` renders a directory structure in a friendly tree format while supporting exact path filters and glob-style path patterns. Invoke it as `duka treex`.
 
 **Highlights**
 - Exclude generated folders such as `__pycache__`, `build`, or `node_modules` with a single command.
+- Use `--include` or `--include-re` to show only selected files or subtrees.
 - Handles deeply nested projects and gracefully reports permission errors.
 - Works great for quickly sharing repository layouts in issues, documentation, or chats.
 
 **Usage**
 ```bash
 duka treex PATH \
+      [--include PATH ...] \
       [--exclude NAME ...] \
-      [--exclude-re RULE ...]
+      [--include-re GLOB ...] \
+      [--exclude-re GLOB ...]
 ```
 
 If `PATH` is omitted, `duka treex` uses the current directory.
+
+Exact filter paths are resolved relative to the inspected `PATH` unless they are absolute. `--exclude-re` and `--include-re` are glob-style POSIX path patterns inside that root. For recursive name containment, write the wildcard explicitly, for example `--exclude-re "*__pycache__*"`. If include rules are present, exclude rules still win.
 
 **Example output**
 ```
@@ -132,20 +137,24 @@ Excluded rules: *.pyc
 
 **Highlights**
 - Recursive by default for quick directory audits.
-- Combine `--exclude` and `--exclude-re` to skip sensitive or noisy paths.
+- Combine `--include`, `--include-re`, `--exclude`, and `--exclude-re` to keep only the files you need.
 - Prints UTF-8 text and replaces undecodable bytes when needed.
 - Perfect for quickly packaging logs, notes, or configuration snapshots for debugging.
 
 **Usage**
 ```bash
 duka dircat ROOT_DIR \
+       [--include PATH ...] \
        [--exclude PATH ...] \
-       [--exclude-re RULE ...]
+       [--include-re GLOB ...] \
+       [--exclude-re GLOB ...]
 ```
+
+Exact filter paths are resolved relative to `ROOT_DIR` unless absolute. Glob-style `*-re` patterns match POSIX paths inside `ROOT_DIR`; use `*__pycache__*` for recursive name containment.
 
 **Writing to a file**
 ```bash
-duka dircat ./config --exclude-re "\.git/" > artifacts/config-dump.txt
+duka dircat ./config --include-re "*.toml" "*.yaml" --exclude secrets > artifacts/config-dump.txt
 ```
 
 ### vidcut — fast and accurate video trimming
@@ -217,29 +226,45 @@ duka pydown --dest ./pbs --version 3.12.6 --extract
 duka pydown --dest ./artifacts --triplet x86_64-unknown-linux-gnu
 ```
 
-### pyarc — pack and unpack tar.gz archives
-`pyarc` creates and extracts `.tar.gz` archives with progress output. It uses external `pigz` and `tar` for speed. Invoke it as `duka pyarc`.
+### arc — pack and unpack tar.gz archives
+`arc` creates and extracts `.tar.gz` archives with progress output. It uses external `tar` + `pigz` for speed when available, and falls back to Python gzip so the tool still works after only `uv tool install dukatools`. Invoke it as `duka arc`.
 
 **Highlights**
-- Fast gzip compression via `pigz` with configurable threads.
-- Exact excludes and flexible rules (`--exclude` / `--exclude-re`).
+- Fast gzip compression via `pigz` with configurable threads when installed.
+- Built-in Python gzip fallback when `pigz` is missing.
+- Exact include/exclude filters and glob-style rules (`--include`, `--exclude`, `--include-re`, `--exclude-re`).
 - Progress bars and throughput reporting for pack/unpack operations.
+- `duka arc doctor` shows which backend will be used and how to install `pigz`.
 
 **Usage**
 ```bash
-duka pyarc pack SRC ARCHIVE.tar.gz \
-      [--exclude NAME ...] \
-      [--exclude-re RULE ...] \
+duka arc pack SRC ARCHIVE.tar.gz \
+      [--include PATH ...] \
+      [--exclude PATH ...] \
+      [--include-re GLOB ...] \
+      [--exclude-re GLOB ...] \
       [--threads N] \
-      [--level 1..9]
+      [--level 1..9] \
+      [--backend auto|system|python]
 
-duka pyarc unpack ARCHIVE.tar.gz DEST_DIR \
-      [--threads N]
+duka arc unpack ARCHIVE.tar.gz DEST_DIR \
+      [--threads N] \
+      [--backend auto|system|python]
+```
+
+Exact filter paths are resolved relative to `SRC` unless absolute. Glob-style `*-re` patterns match POSIX paths inside `SRC`. If include rules are present, only matching paths are archived; exclude rules still win.
+
+When `pigz` is not installed, `duka arc pack` and `duka arc unpack` print a prominent warning and use the Python fallback. Install `pigz` for best performance:
+```bash
+sudo apt install pigz      # Ubuntu/Debian
+brew install pigz          # macOS
+sudo dnf install pigz      # Fedora
+sudo pacman -S pigz        # Arch
 ```
 
 **Example**
 ```bash
-duka pyarc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
+duka arc pack ./project ./project.tar.gz --include src pyproject.toml --exclude-re "*.pyc"
 ```
 
 ## Configuration & environment variables

@@ -17,18 +17,19 @@ class ToolInfo:
     module: str
     summary: str
     usage: str
+    hidden: bool = False
 
 
 TOOLS: Dict[str, ToolInfo] = {
     "treex": ToolInfo(
         "dukatools.treex",
-        "Directory tree with excludes (exact names + regex/glob).",
-        "duka treex [PATH] [--exclude NAME ...] [--exclude-re RULE ...]",
+        "Directory tree with include/exclude path filters.",
+        "duka treex [PATH] [--include PATH ...] [--exclude PATH ...] [--*-re GLOB ...]",
     ),
     "dircat": ToolInfo(
         "dukatools.dircat",
-        "Dump directory files to stdout with clear headers.",
-        "duka dircat ROOT_DIR [--exclude PATH ...] [--exclude-re RULE ...]",
+        "Dump selected directory files to stdout with clear headers.",
+        "duka dircat ROOT_DIR [--include PATH ...] [--exclude PATH ...] [--*-re GLOB ...]",
     ),
     "vidcut": ToolInfo(
         "dukatools.vidcut",
@@ -40,10 +41,16 @@ TOOLS: Dict[str, ToolInfo] = {
         "Download python-build-standalone releases.",
         "duka pydown --dest PATH [--version X.Y[.Z]] [--variant NAME] [--extract]",
     ),
+    "arc": ToolInfo(
+        "dukatools.arc",
+        "Create/extract .tar.gz archives with include/exclude filters.",
+        "duka arc pack SRC ARCHIVE.tar.gz [...] | duka arc unpack ARCHIVE.tar.gz DEST_DIR [...]",
+    ),
     "pyarc": ToolInfo(
         "dukatools.pyarc",
-        "Create/extract .tar.gz using tar + pigz.",
-        "duka pyarc pack SRC ARCHIVE.tar.gz [...] | duka pyarc unpack ARCHIVE.tar.gz DEST_DIR [...]",
+        "Deprecated alias for arc.",
+        "duka arc pack SRC ARCHIVE.tar.gz [...] | duka arc unpack ARCHIVE.tar.gz DEST_DIR [...]",
+        hidden=True,
     ),
 }
 
@@ -53,6 +60,8 @@ def _print_tools() -> None:
     print("Usage: duka <tool> [args...]")
     print("Available tools:")
     for name, info in TOOLS.items():
+        if info.hidden:
+            continue
         print(f"  {name:<7} {info.summary}")
         print(f"         {info.usage}")
     print("Tip: run `duka <tool> --help` for full usage and examples.")
@@ -83,7 +92,9 @@ def main() -> None:
         sys.exit(2)
 
     sys.argv = [tool] + argv[1:]
-    module.main()
+    rc = module.main()
+    if isinstance(rc, int):
+        sys.exit(rc)
 
 
 if __name__ == "__main__":
