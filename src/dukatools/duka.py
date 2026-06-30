@@ -3,13 +3,16 @@
 Usage:
   duka <tool> [args...]
   duka --list
+  duka --version
 """
 
 from __future__ import annotations
 
 import importlib
+import importlib.metadata
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict
 
 @dataclass(frozen=True)
@@ -17,7 +20,6 @@ class ToolInfo:
     module: str
     summary: str
     usage: str
-    hidden: bool = False
 
 
 TOOLS: Dict[str, ToolInfo] = {
@@ -46,22 +48,54 @@ TOOLS: Dict[str, ToolInfo] = {
         "Create/extract .tar.gz archives with include/exclude filters.",
         "duka arc pack SRC ARCHIVE.tar.gz [...] | duka arc unpack ARCHIVE.tar.gz DEST_DIR [...]",
     ),
-    "pyarc": ToolInfo(
-        "dukatools.pyarc",
-        "Deprecated alias for arc.",
-        "duka arc pack SRC ARCHIVE.tar.gz [...] | duka arc unpack ARCHIVE.tar.gz DEST_DIR [...]",
-        hidden=True,
-    ),
 }
+
+
+def _version_from_pyproject() -> str | None:
+    for parent in Path(__file__).resolve().parents:
+        pyproject = parent / "pyproject.toml"
+        if not pyproject.is_file():
+            continue
+        in_project = False
+        project_name = ""
+        project_version = ""
+        for line in pyproject.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped == "[project]":
+                in_project = True
+                continue
+            if stripped.startswith("[") and stripped.endswith("]"):
+                in_project = False
+                continue
+            if not in_project or "=" not in stripped:
+                continue
+            key, value = (part.strip() for part in stripped.split("=", 1))
+            value = value.split("#", 1)[0].strip().strip('"').strip("'")
+            if key == "name":
+                project_name = value
+            elif key == "version":
+                project_version = value
+        if project_name == "dukatools" and project_version:
+            return project_version
+    return None
+
+
+def _package_version() -> str:
+    version = _version_from_pyproject()
+    if version:
+        return version
+    try:
+        return importlib.metadata.version("dukatools")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
 
 
 def _print_tools() -> None:
     print("duka: launcher-only access to dukatools.")
     print("Usage: duka <tool> [args...]")
+    print("       duka --version")
     print("Available tools:")
     for name, info in TOOLS.items():
-        if info.hidden:
-            continue
         print(f"  {name:<7} {info.summary}")
         print(f"         {info.usage}")
     print("Tip: run `duka <tool> --help` for full usage and examples.")
@@ -77,6 +111,10 @@ def main() -> None:
 
     if argv[0] in ("-h", "--help", "--list"):
         _print_tools()
+        return
+
+    if argv[0] in ("-V", "--version"):
+        print(_package_version())
         return
 
     tool = argv[0]

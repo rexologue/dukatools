@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "dukatools"
-version = "0.5.0"
+version = "0.5.1"
 description = "Small cross-platform CLI toolbelt (launcher-only via duka): treex, dircat, arc, and more."
 readme = "README.md"
 requires-python = ">=3.10"
