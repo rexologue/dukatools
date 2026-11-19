@@ -14,6 +14,7 @@
   - [vidcut — fast and accurate video trimming](#vidcut--fast-and-accurate-video-trimming)
   - [pydown — grab python-build-standalone releases](#pydown--grab-python-build-standalone-releases)
   - [arc — pack and unpack tar.gz archives](#arc--pack-and-unpack-targz-archives)
+  - [ntfs — read/write NTFS drives on macOS](#ntfs--readwrite-ntfs-drives-on-macos)
 - [Configuration & environment variables](#configuration--environment-variables)
 - [Development](#development)
 - [License](#license)
@@ -26,6 +27,7 @@
 - **FFmpeg-powered video trimming** via `duka vidcut` with automatic fallback from stream-copy to frame-accurate cuts.
 - **One-file Python downloads** via `duka pydown` for fetching and unpacking python-build-standalone releases.
 - **Archive packing/unpacking** via `duka arc` for progress-aware `.tar.gz` workflows, with fast `pigz` acceleration when available and Python fallback otherwise.
+- **Read/write NTFS on macOS** via `duka ntfs`: builds ntfs-3g against FUSE-T (no kernel extension) and mounts external NTFS drives with one command.
 - **Zero-config defaults** plus optional environment overrides when you need extra control.
 
 ## Installation
@@ -77,6 +79,10 @@ $ duka pydown --dest ~/python-builds --version 3.12 --extract
 
 # Pack a project into a .tar.gz with excludes
 $ duka arc pack ./project ./project.tar.gz --exclude .git --exclude-re "*.pyc"
+
+# macOS: make an external NTFS drive writable (one-time setup, then mount)
+$ duka ntfs setup
+$ duka ntfs mount
 ```
 
 Tools are launcher-only. Use `duka <tool>` and `duka <tool> --help` for full usage.
@@ -266,6 +272,28 @@ sudo pacman -S pigz        # Arch
 ```bash
 duka arc pack ./project ./project.tar.gz --include src pyproject.toml --exclude-re "*.pyc"
 ```
+
+### ntfs — read/write NTFS drives on macOS
+macOS mounts NTFS drives read-only. `ntfs` makes them writable with [FUSE-T](https://github.com/macos-fuse-t/fuse-t) and [ntfs-3g](https://github.com/tuxera/ntfs-3g), without a kernel extension or lowering macOS security. Invoke it as `duka ntfs`. On Linux and Windows it only explains that nothing is needed.
+
+**Highlights**
+- `setup` offers to install missing prerequisites, then downloads a pinned ntfs-3g release, verifies its SHA-256, builds it against FUSE-T and installs `ntfs-3g` + `ntfsfix` into `/usr/local/bin` (root-owned).
+- `mount` unmounts the read-only macOS mount, runs a read-only `ntfsfix -n` check, refuses dirty or hibernated volumes, and mounts read/write as your user with Windows-safe file names.
+- `unmount --eject` waits for ntfs-3g to mark the volume clean before ejecting.
+- `duka` never runs as root: privileged steps are individual `sudo` calls that are printed before they run.
+
+**Requirements**: macOS, [Homebrew](https://brew.sh), Xcode Command Line Tools. `duka ntfs setup` offers to install the rest, asking `[y/N]` first: FUSE-T (`brew install --cask macos-fuse-t/cask/fuse-t`, its installer asks for your admin password) and `pkgconf`. FUSE-T is free for non-commercial use but closed source.
+
+**Usage**
+```bash
+duka ntfs doctor                 # what is installed / connected
+duka ntfs setup [--force] [-y]   # one-time: prerequisites, build + install ntfs-3g (asks for sudo)
+duka ntfs list                   # external NTFS partitions and their state
+duka ntfs mount [disk4s2] [--name ADATA] [--ro]
+duka ntfs unmount [/Volumes/ADATA] [--eject]
+```
+
+**Limitations**: writes to USB HDDs are slow (about 5–30 MB/s, reads about 60 MB/s), and macOS extended attributes are stored as hidden `._` files. The manual recipe, measurements and why other FUSE-T backends do not work are in [docs/ntfs-macos.md](https://github.com/rexologue/dukatools/blob/main/docs/ntfs-macos.md).
 
 ## Configuration & environment variables
 - `DUKATOOLS_FFMPEG` — absolute path to an FFmpeg binary. Overrides auto-detection for `vidcut`.

@@ -48,6 +48,11 @@ TOOLS: Dict[str, ToolInfo] = {
         "Create/extract .tar.gz archives with include/exclude filters.",
         "duka arc pack SRC ARCHIVE.tar.gz [...] | duka arc unpack ARCHIVE.tar.gz DEST_DIR [...]",
     ),
+    "ntfs": ToolInfo(
+        "dukatools.ntfs",
+        "macOS only: read/write NTFS drives via FUSE-T + ntfs-3g (no kext).",
+        "duka ntfs doctor | setup | list | mount [DISK] | unmount [--eject]",
+    ),
 }
 
 
