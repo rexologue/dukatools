@@ -109,6 +109,17 @@ diskutil eject disk4        # whole disk, before unplugging
 Wait until the `ntfs-3g` process has exited (`pgrep -fl ntfs-3g`) before
 unplugging: it marks the volume clean on exit.
 
+If the disk has several NTFS partitions mounted through ntfs-3g, unmount **all**
+of them before `diskutil eject`. To macOS an ntfs-3g mount is an NFS share, not a
+volume of that disk, so `diskutil` does not know the partition is still in use.
+`duka ntfs unmount --eject` does this for you.
+
+## Several drives
+
+Every partition gets its own `ntfs-3g` process and its own `/Volumes/<name>`.
+Pick a different directory for each one; with `duka ntfs mount`, a label that is
+already taken gets a suffix (`ADATA`, `ADATA_2`, ...) unless you set `--name`.
+
 ## Known limitations
 
 **Extended attributes are stored as `._` files.** FUSE-T's NFS backend never

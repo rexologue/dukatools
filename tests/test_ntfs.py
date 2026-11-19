@@ -179,6 +179,105 @@ class PrerequisiteTests(unittest.TestCase):
             self.assertIn("brew.sh", str(ctx.exception))
 
 
+def part(identifier: str, name: str = "DATA", macos: str = "") -> ntfs.Partition:
+    return ntfs.Partition(identifier, name, 1, macos)
+
+
+class MultiDiskTests(unittest.TestCase):
+    A = part("disk4s2", "ADATA")
+    B = part("disk6s1", "ADATA")
+
+    def test_single_partition_needs_no_argument(self) -> None:
+        self.assertEqual(ntfs.choose_partition([self.A], None), self.A)
+
+    def test_two_free_partitions_need_an_argument(self) -> None:
+        with self.assertRaises(ntfs.NtfsError) as ctx:
+            ntfs.choose_partition([self.A, self.B], None)
+        self.assertIn("disk4s2", str(ctx.exception))
+        self.assertIn("disk6s1", str(ctx.exception))
+        self.assertEqual(ntfs.choose_partition([self.A, self.B], "disk6s1"), self.B)
+
+    def test_the_only_unmounted_partition_is_picked(self) -> None:
+        self.assertEqual(ntfs.choose_partition([self.A, self.B], None, {"/dev/disk4s2"}), self.B)
+        self.assertIsNone(ntfs.choose_partition([self.A, self.B], None, {"/dev/disk4s2", "/dev/disk6s1"}))
+
+    def test_taken_name_gets_a_suffix(self) -> None:
+        taken = {"/Volumes/ADATA", "/Volumes/ADATA_2"}
+        self.assertEqual(ntfs.choose_volname("ADATA", taken.__contains__), "ADATA_3")
+        self.assertEqual(ntfs.choose_volname("OTHER", taken.__contains__), "OTHER")
+
+    def test_explicit_taken_name_is_an_error(self) -> None:
+        with self.assertRaises(ntfs.NtfsError):
+            ntfs.choose_volname("ADATA", {"/Volumes/ADATA"}.__contains__, explicit=True)
+
+    def test_mount_point_in_use(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            empty = Path(td) / "empty"
+            empty.mkdir()
+            full = Path(td) / "full"
+            full.mkdir()
+            (full / "f").write_text("x")
+            self.assertFalse(ntfs.mount_point_in_use(str(empty), set()))
+            self.assertFalse(ntfs.mount_point_in_use(str(Path(td) / "missing"), set()))
+            self.assertTrue(ntfs.mount_point_in_use(str(full), set()))
+            self.assertTrue(ntfs.mount_point_in_use(str(empty), {str(empty)}))
+
+
+class UnmountPlanTests(unittest.TestCase):
+    S2 = ntfs.Ntfs3gMount(1, "/dev/disk4s2", "/Volumes/A")
+    S3 = ntfs.Ntfs3gMount(2, "/dev/disk4s3", "/Volumes/B")
+    OTHER = ntfs.Ntfs3gMount(3, "/dev/disk6s1", "/Volumes/C")
+    ALL = [S2, S3, OTHER]
+
+    def test_whole_disk(self) -> None:
+        self.assertEqual(ntfs.whole_disk("/dev/disk4s2"), "/dev/disk4")
+        self.assertEqual(ntfs.whole_disk("/dev/disk12s10"), "/dev/disk12")
+
+    def test_target_by_path_or_device(self) -> None:
+        self.assertEqual(ntfs.plan_unmount(self.ALL, "/Volumes/B/"), [self.S3])
+        self.assertEqual(ntfs.plan_unmount(self.ALL, "disk6s1"), [self.OTHER])
+        with self.assertRaises(ntfs.NtfsError):
+            ntfs.plan_unmount(self.ALL, "/Volumes/X")
+
+    def test_several_mounts_need_a_target_or_all(self) -> None:
+        with self.assertRaises(ntfs.NtfsError):
+            ntfs.plan_unmount(self.ALL, None)
+        self.assertEqual(ntfs.plan_unmount(self.ALL, None, all_mounts=True), self.ALL)
+        with self.assertRaises(ntfs.NtfsError):
+            ntfs.plan_unmount(self.ALL, "/Volumes/A", all_mounts=True)
+
+    def test_eject_includes_other_partitions_of_the_same_disk(self) -> None:
+        self.assertEqual(ntfs.plan_unmount(self.ALL, "/Volumes/A"), [self.S2])
+        self.assertEqual(ntfs.plan_unmount(self.ALL, "/Volumes/A", eject=True), [self.S2, self.S3])
+        self.assertEqual(ntfs.plan_unmount(self.ALL, "/Volumes/C", eject=True), [self.OTHER])
+
+    def test_eject_sibling_is_unmounted_before_disk_is_ejected(self) -> None:
+        calls: list[list[str]] = []
+        alive = {1, 2, 3}
+
+        def fake_sudo(cmd, **kw):
+            calls.append(list(cmd))
+            alive.discard({"/Volumes/A": 1, "/Volumes/B": 2, "/Volumes/C": 3}[cmd[1]])
+            return mock.Mock(returncode=0, stdout="")
+
+        def fake_run(cmd, **kw):
+            calls.append(list(cmd))
+            return mock.Mock(returncode=0, stdout="")
+
+        with mock.patch.object(ntfs, "require_macos"), \
+             mock.patch.object(ntfs, "ntfs3g_mounts", side_effect=lambda: [m for m in self.ALL if m.pid in alive]), \
+             mock.patch.object(ntfs, "run_sudo", side_effect=fake_sudo), \
+             mock.patch.object(ntfs, "run", side_effect=fake_run), \
+             mock.patch.object(ntfs.os, "geteuid", return_value=501):
+            self.assertEqual(ntfs.unmount("/Volumes/A", eject=True), 0)
+        relevant = [c for c in calls if c[0] != "sync"]
+        self.assertEqual(
+            relevant,
+            [["umount", "/Volumes/A"], ["umount", "/Volumes/B"], ["diskutil", "eject", "/dev/disk4"]],
+        )
+        self.assertEqual(alive, {3})
+
+
 class PlatformTests(unittest.TestCase):
     def test_non_macos_commands_explain_and_fail(self) -> None:
         with mock.patch.object(ntfs.platform, "system", return_value="Linux"):

@@ -9,7 +9,7 @@ docs/ntfs-macos.md (https://github.com/rexologue/dukatools/blob/main/docs/ntfs-m
              install ntfs-3g and ntfsfix into /usr/local/bin (asks for sudo once)
   list     - show external NTFS partitions and how they are mounted
   mount    - unmount the read-only macOS mount, check the volume, mount it read/write
-  unmount  - cleanly unmount an ntfs-3g mount (optionally eject the disk)
+  unmount  - cleanly unmount ntfs-3g mounts (optionally eject the disk)
 
 duka itself never runs as root. Privileged steps are separate `sudo` calls to
 root-owned binaries in /usr/local/bin, and every such command is printed first.
@@ -34,7 +34,7 @@ import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import Callable, Iterable, Sequence
 
 from rich.console import Console
 from rich.table import Table
@@ -67,6 +67,7 @@ FUSE_T_INSTALL_CMD = "brew install --cask macos-fuse-t/cask/fuse-t"
 BASE_MOUNT_OPTIONS = ("umask=022", "windows_names", "hide_dot_files")
 
 MOUNT_WAIT_SECONDS = 10.0
+MAX_NAME_SUFFIX = 99
 
 
 class NtfsError(RuntimeError):
@@ -552,8 +553,10 @@ def print_partitions() -> list[Partition]:
     return parts
 
 
-def pick_partition(device: str | None) -> Partition:
-    parts = external_ntfs_partitions()
+def choose_partition(
+    parts: Sequence[Partition], device: str | None, mounted_devices: Iterable[str] = ()
+) -> Partition | None:
+    """Pick the partition to mount. None means all of them are already mounted by ntfs-3g."""
     if device:
         dev = normalize_device(device)
         for p in parts:
@@ -562,10 +565,34 @@ def pick_partition(device: str | None) -> Partition:
         raise NtfsError(f"{dev} is not an external NTFS partition. See `duka ntfs list`.")
     if not parts:
         raise NtfsError("No external NTFS partitions found. Is the drive connected?")
-    if len(parts) > 1:
-        names = ", ".join(f"{p.identifier} ({p.volume_name})" for p in parts)
-        raise NtfsError(f"Several NTFS partitions found: {names}. Pass one, e.g. `duka ntfs mount {parts[0].identifier}`.")
-    return parts[0]
+    if len(parts) == 1:
+        return parts[0]
+    mounted = set(mounted_devices)
+    free = [p for p in parts if p.device not in mounted]
+    if not free:
+        return None
+    if len(free) == 1:
+        return free[0]
+    names = ", ".join(f"{p.identifier} ({p.volume_name})" for p in free)
+    raise NtfsError(f"Several NTFS partitions found: {names}. Pass one, e.g. `duka ntfs mount {free[0].identifier}`.")
+
+
+def mount_point_in_use(path: str, mounted: set[str]) -> bool:
+    p = Path(path)
+    return path in mounted or (p.exists() and (not p.is_dir() or any(p.iterdir())))
+
+
+def choose_volname(base: str, in_use: Callable[[str], bool], explicit: bool = False) -> str:
+    """Name for /Volumes/<name>. Two drives with the same label get NAME, NAME_2, NAME_3, ..."""
+    if not in_use(f"/Volumes/{base}"):
+        return base
+    if explicit:
+        raise NtfsError(f"/Volumes/{base} is already in use. Pick another name with --name.")
+    for n in range(2, MAX_NAME_SUFFIX + 1):
+        candidate = f"{base}_{n}"
+        if not in_use(f"/Volumes/{candidate}"):
+            return candidate
+    raise NtfsError(f"/Volumes/{base} and {base}_2 ... {base}_{MAX_NAME_SUFFIX} are all in use. Pick a name with --name.")
 
 
 def mount(device: str | None, name: str | None, read_only: bool, skip_check: bool) -> int:
@@ -573,16 +600,25 @@ def mount(device: str | None, name: str | None, read_only: bool, skip_check: boo
     refuse_root()
     require_installed()
 
-    part = pick_partition(device)
     existing = {m.device: m for m in ntfs3g_mounts()}
+    part = choose_partition(external_ntfs_partitions(), device, existing)
+    if part is None:
+        console.print("All external NTFS partitions are already mounted by ntfs-3g:")
+        for m in existing.values():
+            console.print(f"  {m.device} at {m.mount_point}")
+        return 0
     if part.device in existing:
         console.print(f"{part.device} is already mounted by ntfs-3g at {existing[part.device].mount_point}.")
         return 0
 
-    volname = sanitize_volume_name(name or part.volume_name)
+    mounted = mounted_paths(run(["mount"], check=False).stdout or "")
+    # macOS's own read-only mount of this partition is about to go away, so its path does not count.
+    volname = choose_volname(
+        sanitize_volume_name(name or part.volume_name),
+        lambda path: path != part.macos_mount_point and mount_point_in_use(path, mounted),
+        explicit=bool(name),
+    )
     mount_point = f"/Volumes/{volname}"
-    if is_mounted(mount_point) or (Path(mount_point).exists() and any(Path(mount_point).iterdir())):
-        raise NtfsError(f"{mount_point} is already in use. Pick another name with --name.")
 
     # 1. macOS keeps the device open while its read-only mount exists.
     if part.macos_mount_point:
@@ -625,15 +661,24 @@ def mount(device: str | None, name: str | None, read_only: bool, skip_check: boo
     return 0
 
 
-def unmount(target: str | None, eject: bool) -> int:
-    require_macos()
-    refuse_root()
+def whole_disk(device: str) -> str:
+    """/dev/disk4s2 -> /dev/disk4"""
+    return re.sub(r"s\d+$", "", device)
 
-    mounts = ntfs3g_mounts()
-    if not mounts:
-        console.print("No ntfs-3g mounts found.")
-        return 0
-    if target:
+
+def plan_unmount(
+    mounts: Sequence[Ntfs3gMount], target: str | None, all_mounts: bool = False, eject: bool = False
+) -> list[Ntfs3gMount]:
+    """Which ntfs-3g mounts to unmount.
+
+    With eject, every other ntfs-3g mount on the same physical disk is included too:
+    ejecting the disk under a running ntfs-3g would leave that volume dirty.
+    """
+    if target and all_mounts:
+        raise NtfsError("Pass a mount point or --all, not both.")
+    if all_mounts:
+        chosen = list(mounts)
+    elif target:
         t = target.rstrip("/") or "/"
         chosen = [m for m in mounts if m.mount_point == t]
         if not chosen:
@@ -643,10 +688,30 @@ def unmount(target: str | None, eject: bool) -> int:
             raise NtfsError(f"No ntfs-3g mount matches {target!r}. See `duka ntfs list`.")
     elif len(mounts) > 1:
         names = ", ".join(m.mount_point for m in mounts)
-        raise NtfsError(f"Several ntfs-3g mounts: {names}. Pass one of them.")
+        raise NtfsError(f"Several ntfs-3g mounts: {names}. Pass one of them, or --all.")
     else:
-        chosen = mounts
+        chosen = list(mounts)
+    if eject:
+        disks = {whole_disk(m.device) for m in chosen}
+        chosen += [m for m in mounts if whole_disk(m.device) in disks and m not in chosen]
+    return chosen
 
+
+def unmount(target: str | None, eject: bool, all_mounts: bool = False) -> int:
+    require_macos()
+    refuse_root()
+
+    mounts = ntfs3g_mounts()
+    if not mounts:
+        console.print("No ntfs-3g mounts found.")
+        return 0
+    chosen = plan_unmount(mounts, target, all_mounts=all_mounts, eject=eject)
+    requested = plan_unmount(mounts, target, all_mounts=all_mounts)
+    for m in chosen:
+        if m not in requested:
+            console.print(f"{m.mount_point} is on the same disk ({whole_disk(m.device)}), unmounting it before the eject.")
+
+    # Unmount everything first; eject only once all of it is clean.
     for m in chosen:
         run(["sync"], check=False)
         proc = run_sudo(["umount", m.mount_point], check=False, capture=True)
@@ -659,11 +724,12 @@ def unmount(target: str | None, eject: bool) -> int:
         if not wait_until(lambda: m.pid not in {x.pid for x in ntfs3g_mounts()}, timeout=30):
             raise NtfsError(f"ntfs-3g (pid {m.pid}) is still running after unmount. Do not unplug the drive yet.")
         console.print(f"[green]Unmounted {m.mount_point}.[/green]")
-        if eject:
-            whole = re.sub(r"s\d+$", "", m.device)
-            show_cmd(["diskutil", "eject", whole])
-            run(["diskutil", "eject", whole])
-            console.print(f"[green]Ejected {whole}. Safe to unplug.[/green]")
+
+    if eject:
+        for disk in dict.fromkeys(whole_disk(m.device) for m in chosen):
+            show_cmd(["diskutil", "eject", disk])
+            run(["diskutil", "eject", disk])
+            console.print(f"[green]Ejected {disk}. Safe to unplug.[/green]")
     return 0
 
 
@@ -676,9 +742,10 @@ Examples:
   duka ntfs doctor            # what is installed, what is connected
   duka ntfs setup             # offers to install FUSE-T/pkgconf, then builds + installs ntfs-3g {NTFS3G_VERSION}
   duka ntfs list
-  duka ntfs mount             # the only external NTFS partition, read/write
+  duka ntfs mount             # the only (or the only not yet mounted) NTFS partition
   duka ntfs mount disk4s2 --name ADATA
-  duka ntfs unmount --eject
+  duka ntfs unmount --eject   # also unmounts other partitions of that disk
+  duka ntfs unmount --all
 
 Requirements: macOS, Homebrew, Xcode Command Line Tools. `setup` offers to install
 FUSE-T ({FUSE_T_INSTALL_CMD}) and pkgconf, asking first.
@@ -702,14 +769,15 @@ Manual recipe and known limitations:
     sub.add_parser("list", help="Show external NTFS partitions and their mount state.")
 
     p_mount = sub.add_parser("mount", help="Mount an NTFS partition read/write.")
-    p_mount.add_argument("device", nargs="?", help="Partition, e.g. disk4s2. Optional if only one is connected.")
-    p_mount.add_argument("--name", help="Mount as /Volumes/NAME (default: volume label without spaces).")
+    p_mount.add_argument("device", nargs="?", help="Partition, e.g. disk4s2. Optional if only one is connected or not yet mounted.")
+    p_mount.add_argument("--name", help="Mount as /Volumes/NAME (default: volume label without spaces, _2, _3... if taken).")
     p_mount.add_argument("--ro", action="store_true", help="Mount read-only through ntfs-3g (skips the check).")
     p_mount.add_argument("--no-check", action="store_true", help="Skip the `ntfsfix -n` consistency check.")
 
     p_unmount = sub.add_parser("unmount", aliases=["umount"], help="Cleanly unmount an ntfs-3g mount.")
     p_unmount.add_argument("target", nargs="?", help="Mount point or partition. Optional if only one is mounted.")
-    p_unmount.add_argument("--eject", action="store_true", help="Also eject the whole disk afterwards.")
+    p_unmount.add_argument("--all", dest="all_mounts", action="store_true", help="Unmount every ntfs-3g mount.")
+    p_unmount.add_argument("--eject", action="store_true", help="Also eject the whole disk afterwards (unmounts its other partitions first).")
     return p
 
 
@@ -728,7 +796,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         if args.cmd == "mount":
             return mount(args.device, args.name, read_only=args.ro, skip_check=args.no_check)
         if args.cmd in ("unmount", "umount"):
-            return unmount(args.target, eject=args.eject)
+            return unmount(args.target, eject=args.eject, all_mounts=args.all_mounts)
         return 2
     except NtfsError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")

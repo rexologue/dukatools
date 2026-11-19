@@ -51,7 +51,7 @@ TOOLS: Dict[str, ToolInfo] = {
     "ntfs": ToolInfo(
         "dukatools.ntfs",
         "macOS only: read/write NTFS drives via FUSE-T + ntfs-3g (no kext).",
-        "duka ntfs doctor | setup | list | mount [DISK] | unmount [--eject]",
+        "duka ntfs doctor | setup | list | mount [DISK] | unmount [--all] [--eject]",
     ),
 }
 

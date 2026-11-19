@@ -279,7 +279,8 @@ macOS mounts NTFS drives read-only. `ntfs` makes them writable with [FUSE-T](htt
 **Highlights**
 - `setup` offers to install missing prerequisites, then downloads a pinned ntfs-3g release, verifies its SHA-256, builds it against FUSE-T and installs `ntfs-3g` + `ntfsfix` into `/usr/local/bin` (root-owned).
 - `mount` unmounts the read-only macOS mount, runs a read-only `ntfsfix -n` check, refuses dirty or hibernated volumes, and mounts read/write as your user with Windows-safe file names.
-- `unmount --eject` waits for ntfs-3g to mark the volume clean before ejecting.
+- `unmount --eject` waits for ntfs-3g to mark the volume clean before ejecting, and first unmounts any other NTFS partition of the same disk.
+- Several drives at once: `mount` without an argument picks the only partition that is not mounted yet, drives with the same label become `/Volumes/NAME`, `/Volumes/NAME_2`, ..., and `unmount --all` unmounts everything.
 - `duka` never runs as root: privileged steps are individual `sudo` calls that are printed before they run.
 
 **Requirements**: macOS, [Homebrew](https://brew.sh), Xcode Command Line Tools. `duka ntfs setup` offers to install the rest, asking `[y/N]` first: FUSE-T (`brew install --cask macos-fuse-t/cask/fuse-t`, its installer asks for your admin password) and `pkgconf`. FUSE-T is free for non-commercial use but closed source.
@@ -290,7 +291,7 @@ duka ntfs doctor                 # what is installed / connected
 duka ntfs setup [--force] [-y]   # one-time: prerequisites, build + install ntfs-3g (asks for sudo)
 duka ntfs list                   # external NTFS partitions and their state
 duka ntfs mount [disk4s2] [--name ADATA] [--ro]
-duka ntfs unmount [/Volumes/ADATA] [--eject]
+duka ntfs unmount [/Volumes/ADATA | disk4s2 | --all] [--eject]
 ```
 
 **Limitations**: writes to USB HDDs are slow (about 5–30 MB/s, reads about 60 MB/s), and macOS extended attributes are stored as hidden `._` files. The manual recipe, measurements and why other FUSE-T backends do not work are in [docs/ntfs-macos.md](https://github.com/rexologue/dukatools/blob/main/docs/ntfs-macos.md).
